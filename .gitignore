@@ -1,0 +1,17 @@
+# Build artifacts
+/build/
+/bin/
+*.o
+*.a
+*.so
+*.ppm
+
+# Local save games
+/saves/
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/

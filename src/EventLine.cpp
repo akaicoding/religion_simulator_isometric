@@ -1,0 +1,75 @@
+#include "EventLine.hpp"
+#include <algorithm>
+
+namespace ReligionSim {
+
+EventLine::EventLine(size_t maxEvents)
+    : m_maxEvents(maxEvents) {
+    m_events.reserve(maxEvents);
+}
+
+void EventLine::addEvent(const GameEvent& ev) {
+    GameEvent item = ev;
+    item.id = m_nextId++;
+    if (m_events.size() >= m_maxEvents) {
+        m_events.erase(m_events.begin());
+    }
+    m_events.push_back(item);
+}
+
+void EventLine::addEvent(int year, EventCategory cat, const std::string& title,
+                        const std::string& desc, const Point2i& loc,
+                        int relA, int relB, ColorRGB color) {
+    GameEvent ev;
+    ev.year = year;
+    ev.category = cat;
+    ev.title = title;
+    ev.description = desc;
+    ev.location = loc;
+    ev.religionAId = relA;
+    ev.religionBId = relB;
+    ev.badgeColor = color;
+    addEvent(ev);
+}
+
+const GameEvent* EventLine::getEventById(int id) const {
+    for (const auto& ev : m_events) {
+        if (ev.id == id) return &ev;
+    }
+    return nullptr;
+}
+
+const GameEvent* EventLine::getSelectedEvent() const {
+    if (m_selectedEventId < 0) return nullptr;
+    return getEventById(m_selectedEventId);
+}
+
+void EventLine::selectEvent(int id) {
+    m_selectedEventId = id;
+}
+
+void EventLine::clearSelection() {
+    m_selectedEventId = -1;
+}
+
+std::vector<GameEvent> EventLine::getRecentEvents(size_t count) const {
+    std::vector<GameEvent> result;
+    if (m_events.empty()) return result;
+
+    size_t n = std::min(count, m_events.size());
+    result.insert(result.end(), m_events.end() - n, m_events.end());
+    std::reverse(result.begin(), result.end());
+    return result;
+}
+
+std::vector<GameEvent> EventLine::getEventsForYearRange(int startYear, int endYear) const {
+    std::vector<GameEvent> result;
+    for (const auto& ev : m_events) {
+        if (ev.year >= startYear && ev.year <= endYear) {
+            result.push_back(ev);
+        }
+    }
+    return result;
+}
+
+} // namespace ReligionSim
