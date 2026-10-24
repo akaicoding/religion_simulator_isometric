@@ -22,7 +22,8 @@ int main(int argc, char** argv) {
         } else if (arg == "--export" && i + 1 < argc) {
             exportFile = argv[++i];
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: ./bin/religion_sim [options]\n"
+            std::cout << "Marangatu: The Faith Simulator\n"
+                      << "Usage: ./bin/religion_sim [options]\n"
                       << "  --headless              Run simulation without opening an X11 window\n"
                       << "  --ticks <N>             Number of simulation ticks to run (default: 180)\n"
                       << "  --export <file.ppm>     Export map snapshot to PPM image\n"
