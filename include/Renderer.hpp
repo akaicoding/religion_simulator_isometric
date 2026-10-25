@@ -93,6 +93,7 @@ public:
 
     void* getDisplay() const { return m_display; }
     unsigned long getWindow() const { return m_window; }
+    void* getHwnd() const { return m_hwnd; }
     bool hasActiveWindow() const { return m_hasActiveWindow; }
 
     void drawCursor(int mouseX, int mouseY);
@@ -104,9 +105,11 @@ private:
     int m_height{720};
     std::vector<uint32_t> m_framebuffer;
 
-    // Windowing internals (X11 / OpenGL)
+    // Windowing internals (X11 / OpenGL / Win32)
     void* m_display{nullptr};
     unsigned long m_window{0};
+    void* m_hwnd{nullptr};
+    void* m_hdc{nullptr};
     void* m_glContext{nullptr};
     bool m_hasActiveWindow{false};
 

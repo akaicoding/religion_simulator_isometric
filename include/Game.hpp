@@ -66,6 +66,7 @@ public:
     const FaithFogOfWar& getFogOfWar() const { return m_fog; }
     bool isLuminusActive() const { return m_cheatLuminusActive; }
     void runCommand(const std::string& cmd) { executeCommand(cmd); }
+    void stop() { m_isRunning = false; }
 
     void startNewCustomWorld();
     void loadStateFromSave(const WorldMap& map, const ReligionRegistry& registry,
@@ -118,6 +119,7 @@ private:
     void processButtonAction(int buttonId);
     void executeCommand(const std::string& rawCmd);
     void handleX11Events();
+    void handleWindowEvents();
     void initFaithFog(int playerRelId);
     void refreshFaithFog();
     void focusCameraOnPlayerFaith();

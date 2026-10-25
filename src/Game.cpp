@@ -12,6 +12,118 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#elif defined(_WIN32)
+#define HAS_WIN32 1
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <windowsx.h>
+#endif
+
+#ifdef HAS_WIN32
+static ReligionSim::Game* g_win32GameInstance = nullptr;
+
+LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (!g_win32GameInstance) return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+
+    switch (uMsg) {
+        case WM_DESTROY:
+        case WM_CLOSE:
+            g_win32GameInstance->stop();
+            PostQuitMessage(0);
+            return 0;
+
+        case WM_SIZE: {
+            int nw = LOWORD(lParam);
+            int nh = HIWORD(lParam);
+            if (nw > 0 && nh > 0) {
+                g_win32GameInstance->onWindowResize(nw, nh);
+            }
+            return 0;
+        }
+
+        case WM_LBUTTONDOWN: {
+            float mx = static_cast<float>(GET_X_LPARAM(lParam));
+            float my = static_cast<float>(GET_Y_LPARAM(lParam));
+            SetCapture(hwnd);
+            g_win32GameInstance->onMouseDown(1, mx, my);
+            return 0;
+        }
+        case WM_LBUTTONUP: {
+            float mx = static_cast<float>(GET_X_LPARAM(lParam));
+            float my = static_cast<float>(GET_Y_LPARAM(lParam));
+            ReleaseCapture();
+            g_win32GameInstance->onMouseUp(1, mx, my);
+            return 0;
+        }
+        case WM_RBUTTONDOWN: {
+            float mx = static_cast<float>(GET_X_LPARAM(lParam));
+            float my = static_cast<float>(GET_Y_LPARAM(lParam));
+            SetCapture(hwnd);
+            g_win32GameInstance->onMouseDown(3, mx, my);
+            return 0;
+        }
+        case WM_RBUTTONUP: {
+            float mx = static_cast<float>(GET_X_LPARAM(lParam));
+            float my = static_cast<float>(GET_Y_LPARAM(lParam));
+            ReleaseCapture();
+            g_win32GameInstance->onMouseUp(3, mx, my);
+            return 0;
+        }
+        case WM_MOUSEMOVE: {
+            float mx = static_cast<float>(GET_X_LPARAM(lParam));
+            float my = static_cast<float>(GET_Y_LPARAM(lParam));
+            g_win32GameInstance->onMouseMove(mx, my);
+            return 0;
+        }
+        case WM_MOUSEWHEEL: {
+            short delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            ScreenToClient(hwnd, &pt);
+            g_win32GameInstance->onMouseWheel(delta > 0 ? 1.0f : -1.0f, static_cast<float>(pt.x), static_cast<float>(pt.y));
+            return 0;
+        }
+        case WM_CHAR: {
+            if (wParam >= 32 && wParam <= 126) {
+                g_win32GameInstance->onKeyPress(static_cast<uint8_t>(wParam));
+                return 0;
+            }
+            break;
+        }
+        case WM_KEYDOWN: {
+            if (wParam == VK_ESCAPE) {
+                g_win32GameInstance->onKeyPress(27);
+            } else if (wParam == VK_RETURN) {
+                g_win32GameInstance->onKeyPress(13);
+            } else if (wParam == VK_BACK) {
+                g_win32GameInstance->onKeyPress(8);
+            } else if (wParam == VK_SPACE) {
+                g_win32GameInstance->onKeyPress(32);
+            } else if (wParam == 'W') {
+                g_win32GameInstance->onKeyPress('w');
+            } else if (wParam == 'A') {
+                g_win32GameInstance->onKeyPress('a');
+            } else if (wParam == 'S') {
+                g_win32GameInstance->onKeyPress('s');
+            } else if (wParam == 'D') {
+                g_win32GameInstance->onKeyPress('d');
+            } else if (wParam == 'R') {
+                g_win32GameInstance->onKeyPress('r');
+            } else if (wParam >= '0' && wParam <= '9') {
+                g_win32GameInstance->onKeyPress(static_cast<uint8_t>(wParam));
+            } else if (wParam == VK_OEM_PLUS || wParam == VK_ADD) {
+                g_win32GameInstance->onKeyPress('+');
+            } else if (wParam == VK_OEM_MINUS || wParam == VK_SUBTRACT) {
+                g_win32GameInstance->onKeyPress('-');
+            }
+            return 0;
+        }
+        default:
+            break;
+    }
+    return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+}
 #endif
 
 namespace ReligionSim {
@@ -30,15 +142,24 @@ Game::Game(int windowWidth, int windowHeight)
 Game::~Game() {}
 
 bool Game::init() {
+#ifdef HAS_WIN32
+    g_win32GameInstance = this;
+#endif
     // Generar una semilla aleatoria por defecto para el primer arranque en la ventana de creación
     m_creationConfig.mapSeed = static_cast<uint32_t>(std::time(nullptr)) ^ 0xA5A5A5A5;
 
-    // Try initializing X11/OpenGL window
+    // Try initializing window (X11 / Win32 / OpenGL)
     bool windowOk = m_renderer.initWindow("Marangatu: The Faith Simulator");
     if (windowOk) {
+#if HAS_X11
         std::cout << "[Simulator] X11/OpenGL Display initialized successfully." << std::endl;
+#elif defined(HAS_WIN32)
+        std::cout << "[Simulator] Win32/OpenGL Display initialized successfully." << std::endl;
+#else
+        std::cout << "[Simulator] Window initialized successfully." << std::endl;
+#endif
     } else {
-        std::cout << "[Simulator] Running in headless mode (no direct X11 DISPLAY detected)." << std::endl;
+        std::cout << "[Simulator] Running in headless mode (no display detected)." << std::endl;
     }
 
     return true;
@@ -950,6 +1071,22 @@ void Game::handleX11Events() {
 #endif
 }
 
+void Game::handleWindowEvents() {
+#if HAS_X11
+    handleX11Events();
+#elif defined(HAS_WIN32)
+    MSG msg;
+    while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
+        if (msg.message == WM_QUIT) {
+            m_isRunning = false;
+            break;
+        }
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
+    }
+#endif
+}
+
 void Game::run() {
     auto lastTime = std::chrono::high_resolution_clock::now();
 
@@ -959,7 +1096,7 @@ void Game::run() {
         lastTime = now;
         dt = std::min(dt, 0.1f); // Cap dt
 
-        handleX11Events();
+        handleWindowEvents();
         update(dt);
         render();
 

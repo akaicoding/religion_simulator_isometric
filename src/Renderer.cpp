@@ -15,6 +15,14 @@
 #include <X11/keysym.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
+#elif defined(_WIN32)
+#define HAS_WIN32 1
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <windowsx.h>
+#include <GL/gl.h>
 #endif
 
 namespace ReligionSim {
@@ -103,6 +111,7 @@ void Renderer::loadMenuBackground() {
     // Intenta cargar la textura del fondo de menú
     std::vector<std::string> searchPaths = {
         "assets/ui/main_menu_bg.rgba",
+        "../assets/ui/main_menu_bg.rgba",
         "religion_simulator_isometric/assets/ui/main_menu_bg.rgba",
         "/home/Ivancho/Documentos/religion_simulator_isometric/assets/ui/main_menu_bg.rgba"
     };
@@ -150,6 +159,7 @@ void Renderer::loadMenuBackground() {
 void Renderer::loadCursor() {
     std::vector<std::string> searchPaths = {
         "assets/ui/cursor_rts.rgba",
+        "../assets/ui/cursor_rts.rgba",
         "religion_simulator_isometric/assets/ui/cursor_rts.rgba",
         "/home/Ivancho/Documentos/religion_simulator_isometric/assets/ui/cursor_rts.rgba"
     };
@@ -186,6 +196,7 @@ void Renderer::loadTempleAndTerrainAssets() {
     // 1. Cargar sprite del Templo Prehistórico/Animista (128x128)
     std::vector<std::string> templePaths = {
         "assets/sprites/temple_main.rgba",
+        "../assets/sprites/temple_main.rgba",
         "religion_simulator_isometric/assets/sprites/temple_main.rgba",
         "/home/Ivancho/Documentos/religion_simulator_isometric/assets/sprites/temple_main.rgba"
     };
@@ -218,6 +229,7 @@ void Renderer::loadTempleAndTerrainAssets() {
     // 2. Cargar Atlas de Terreno y Vegetación (512x128)
     std::vector<std::string> terrainPaths = {
         "assets/sprites/terrain_atlas.rgba",
+        "../assets/sprites/terrain_atlas.rgba",
         "religion_simulator_isometric/assets/sprites/terrain_atlas.rgba",
         "/home/Ivancho/Documentos/religion_simulator_isometric/assets/sprites/terrain_atlas.rgba"
     };
@@ -249,8 +261,10 @@ void Renderer::loadTempleAndTerrainAssets() {
 
     // 3. Cargar hoja de sprites del Chamán Sagrado (256x256, cuadrícula 4x4 de 64x64)
     if (!m_shamanTileSet.cargarDesdeArchivo("assets/sprites/chaman_sheet.rgba")) {
-        if (!m_shamanTileSet.cargarDesdeArchivo("religion_simulator_isometric/assets/sprites/chaman_sheet.rgba")) {
-            m_shamanTileSet.cargarDesdeArchivo("/home/Ivancho/Documentos/religion_simulator_isometric/assets/sprites/chaman_sheet.rgba");
+        if (!m_shamanTileSet.cargarDesdeArchivo("../assets/sprites/chaman_sheet.rgba")) {
+            if (!m_shamanTileSet.cargarDesdeArchivo("religion_simulator_isometric/assets/sprites/chaman_sheet.rgba")) {
+                m_shamanTileSet.cargarDesdeArchivo("/home/Ivancho/Documentos/religion_simulator_isometric/assets/sprites/chaman_sheet.rgba");
+            }
         }
     }
 }
@@ -472,6 +486,10 @@ void Renderer::resize(int newWidth, int newHeight) {
     if (m_hasActiveWindow) {
         glViewport(0, 0, m_width, m_height);
     }
+#elif defined(HAS_WIN32)
+    if (m_hasActiveWindow) {
+        glViewport(0, 0, m_width, m_height);
+    }
 #endif
     initUI();
 }
@@ -609,6 +627,63 @@ bool Renderer::initWindow(const std::string& title) {
 
     glViewport(0, 0, m_width, m_height);
     return true;
+#elif defined(HAS_WIN32)
+    HINSTANCE hInstance = GetModuleHandleA(NULL);
+    const char* className = "ReligionSimWindowClass";
+
+    extern LRESULT CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
+
+    WNDCLASSEXA wc{};
+    wc.cbSize = sizeof(WNDCLASSEXA);
+    wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+    wc.lpfnWndProc = MainWndProc;
+    wc.hInstance = hInstance;
+    wc.hCursor = NULL;
+    wc.lpszClassName = className;
+
+    RegisterClassExA(&wc);
+
+    RECT wr = { 0, 0, m_width, m_height };
+    AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+    int winW = wr.right - wr.left;
+    int winH = wr.bottom - wr.top;
+
+    HWND hwnd = CreateWindowExA(
+        0, className, title.c_str(),
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        CW_USEDEFAULT, CW_USEDEFAULT, winW, winH,
+        NULL, NULL, hInstance, NULL
+    );
+
+    if (!hwnd) {
+        m_hasActiveWindow = false;
+        return false;
+    }
+
+    HDC hdc = GetDC(hwnd);
+    PIXELFORMATDESCRIPTOR pfd{};
+    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
+    pfd.cDepthBits = 24;
+
+    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
+    SetPixelFormat(hdc, pixelFormat, &pfd);
+
+    HGLRC glc = wglCreateContext(hdc);
+    wglMakeCurrent(hdc, glc);
+
+    ShowCursor(FALSE); // Ocultar cursor nativo para usar el cursor RTS 32x32
+
+    m_hwnd = hwnd;
+    m_hdc = hdc;
+    m_glContext = glc;
+    m_hasActiveWindow = true;
+
+    glViewport(0, 0, m_width, m_height);
+    return true;
 #else
     (void)title;
     return false;
@@ -631,6 +706,20 @@ void Renderer::closeWindow() {
         XCloseDisplay(dpy);
         m_display = nullptr;
     }
+#elif defined(HAS_WIN32)
+    if (m_glContext) {
+        wglMakeCurrent(NULL, NULL);
+        wglDeleteContext(static_cast<HGLRC>(m_glContext));
+        m_glContext = nullptr;
+    }
+    if (m_hdc && m_hwnd) {
+        ReleaseDC(static_cast<HWND>(m_hwnd), static_cast<HDC>(m_hdc));
+        m_hdc = nullptr;
+    }
+    if (m_hwnd) {
+        DestroyWindow(static_cast<HWND>(m_hwnd));
+        m_hwnd = nullptr;
+    }
 #endif
     m_hasActiveWindow = false;
 }
@@ -644,6 +733,11 @@ void Renderer::endFrame() {
     if (m_hasActiveWindow && m_display) {
         glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_framebuffer.data());
         glXSwapBuffers(static_cast<Display*>(m_display), m_window);
+    }
+#elif defined(HAS_WIN32)
+    if (m_hasActiveWindow && m_hdc) {
+        glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_framebuffer.data());
+        SwapBuffers(static_cast<HDC>(m_hdc));
     }
 #endif
 }

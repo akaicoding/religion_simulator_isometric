@@ -95,13 +95,40 @@ Intervenciones en HUD: **+ SINCRETISMO**, **+ CISMA**, **+ TEMPLO**.
 
 ## Compilar y ejecutar
 
-Requisitos: `g++` o `clang++` con **C++20**, `make`. GUI nativa: `libX11` y OpenGL/GLX (Linux).
+El juego es multiplataforma y soporta compilación nativa tanto en **Linux** como en **Windows**.
+
+### En Linux
+Requisitos: `g++` o `clang++` con **C++20**, `make`, `libx11-dev` y `libgl1-mesa-dev`.
 
 ```bash
-make test          # suite de simulación
+make test          # suite de pruebas unitarias
 make all           # binario principal
 DISPLAY=:0 ./bin/religion_sim
 ./bin/religion_sim --headless --ticks 250 --export simulation_snapshot.ppm
+```
+
+### En Windows (Nativo - genera `religion_sim.exe`)
+
+#### Opción A: Con CMake (Visual Studio / CLion / MinGW)
+En PowerShell o CMD en la carpeta del proyecto:
+```powershell
+cmake -B build
+cmake --build build --config Release
+.\build\Release\religion_sim.exe
+```
+
+#### Opción B: Con Make (MinGW-w64 en Git Bash o MSYS2)
+```bash
+make all
+./bin/religion_sim.exe
+```
+
+### En Windows (con WSL2 / WSLg)
+Si tienes WSL2 instalado:
+```bash
+sudo apt update && sudo apt install -y build-essential libx11-dev libgl1-mesa-dev
+make all
+./bin/religion_sim
 ```
 
 Opciones CLI: `--headless`, `--ticks N`, `--export archivo.ppm`, `--help`.

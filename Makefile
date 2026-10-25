@@ -1,6 +1,15 @@
 CXX ?= g++
 CXXFLAGS = -std=c++20 -Wall -Wextra -O3 -Iinclude -MMD -MP
-LDFLAGS = -lX11 -lGL -lpthread
+
+ifeq ($(OS),Windows_NT)
+    TARGET = $(BIN_DIR)/religion_sim.exe
+    TEST_TARGET = $(BIN_DIR)/test_simulation.exe
+    LDFLAGS = -lopengl32 -lgdi32 -luser32 -lpthread
+else
+    TARGET = $(BIN_DIR)/religion_sim
+    TEST_TARGET = $(BIN_DIR)/test_simulation
+    LDFLAGS = -lX11 -lGL -lpthread
+endif
 
 SRC_DIR = src
 INC_DIR = include
