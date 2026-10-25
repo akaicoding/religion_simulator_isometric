@@ -118,7 +118,10 @@ private:
     void processButtonAction(int buttonId);
     void executeCommand(const std::string& rawCmd);
     void handleX11Events();
+    void initFaithFog(int playerRelId);
+    void refreshFaithFog();
     void focusCameraOnPlayerFaith();
+    int resolvePlayerReligionId() const;
     bool isCellHiddenByFog(int gx, int gy) const { return m_fog.isEnabled() && !m_fog.isVisible(gx, gy); }
     void showFeedback(const std::string& msg, float seconds = 4.0f);
 };

@@ -39,8 +39,31 @@ public:
 
     float getDevocion() const { return m_devocion; }
     void setDevocion(float d) {
-        m_devocion = d;
-        m_humanUnit.devotion = std::clamp(d * 100.0f, 0.0f, 100.0f);
+        float viejo = m_devocion;
+        m_devocion = std::clamp(d, 0.0f, 1.0f);
+        m_humanUnit.devotion = m_devocion * 100.0f;
+        float diff = m_devocion - viejo;
+        if (diff >= 0.012f) {
+            triggerFaithIndicator(+1);
+        } else if (diff <= -0.012f) {
+            triggerFaithIndicator(-1);
+        } else {
+            m_faithDeltaAccum += diff;
+            if (m_faithDeltaAccum >= 0.018f) {
+                triggerFaithIndicator(+1);
+            } else if (m_faithDeltaAccum <= -0.018f) {
+                triggerFaithIndicator(-1);
+            }
+        }
+    }
+
+    int getFaithIndicatorSign() const { return m_faithIndicatorSign; }
+    float getFaithIndicatorTimer() const { return m_faithIndicatorTimer; }
+    void triggerFaithIndicator(int sign, float duracion = 1.35f) {
+        if (sign == 0) return;
+        m_faithIndicatorSign = sign;
+        m_faithIndicatorTimer = duracion;
+        m_faithDeltaAccum = 0.0f;
     }
 
     bool esChaman() const { return m_esChaman; }
@@ -63,9 +86,35 @@ public:
         m_humanUnit.devotion = 100.0f;
         m_humanUnit.energy = 100.0f;
         m_humanUnit.currentState = HumanAIState::WORSHIPING;
+        triggerFaithIndicator(+1, 1.6f);
     }
 
     float getSalud() const { return m_salud; }
+    bool estaVivo() const { return m_salud > 0.0f; }
+    bool estaMuerto() const { return m_salud <= 0.0f; }
+    float getTimerMuerte() const { return m_timerMuerte; }
+
+    void setSalud(float s) {
+        m_salud = std::clamp(s, 0.0f, 100.0f);
+        m_humanUnit.hitPoints = m_salud;
+        if (m_salud <= 0.0f && m_timerMuerte <= 0.0f) {
+            m_timerMuerte = 1.6f;
+            m_accion = AccionHumano::IDLE;
+            m_velocidad = 0.0f;
+        }
+    }
+    void recibirDano(float cantidad) {
+        if (cantidad <= 0.0f || m_salud <= 0.0f) return;
+        m_salud = std::max(0.0f, m_salud - cantidad);
+        m_humanUnit.hitPoints = m_salud;
+        m_timerDano = 0.65f;
+        if (m_salud <= 0.0f && m_timerMuerte <= 0.0f) {
+            m_timerMuerte = 1.6f;
+            m_accion = AccionHumano::IDLE;
+            m_velocidad = 0.0f;
+        }
+    }
+    float getTimerDano() const { return m_timerDano; }
     float getEnergia() const { return m_energia; }
 
     // Estructura demográfica y motivacional de la Primera Era (FirstEraAIController)
@@ -84,6 +133,7 @@ public:
     void actualizar(float dt, const WorldMap& mapa);
     void cambiarAccion(AccionHumano nuevaAccion);
     void cambiarDireccion(DireccionIso nuevaDir);
+    void orientarHacia(float destX, float destY);
     void caminarHacia(float destX, float destY, bool corriendo = false);
     void ordenarMovimientoManual(float destX, float destY);
     bool tieneOrdenManual() const { return m_ordenManual; }
@@ -121,6 +171,12 @@ private:
     float m_timerSenalDivina{0.0f};
     float m_salud{100.0f};
     float m_energia{100.0f};
+    float m_timerDano{0.0f};
+    float m_timerMuerte{0.0f};
+
+    float m_faithDeltaAccum{0.0f};
+    int m_faithIndicatorSign{0}; // +1: '+' verde (gana fe), -1: '+' rojo (pierde fe)
+    float m_faithIndicatorTimer{0.0f};
 
     float m_timerEstado{2.5f};
     float m_animTimer{0.0f};
@@ -160,6 +216,7 @@ private:
     int m_siguienteId{1};
     FirstEraAIController m_firstEraAI{};
     HumanAIController m_humanAI{};
+    float m_birthAccumulator{0.0f};
 };
 
 } // namespace ReligionSim

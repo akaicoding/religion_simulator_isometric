@@ -444,6 +444,79 @@ void testHumanAIController() {
     std::cout << "  -> testHumanAIController PASSED! Systemic roles and conversion inertia verified." << std::endl;
 }
 
+void testFaithFeedbackAndCombatDamage() {
+    std::cout << "[Test] Running testFaithFeedbackAndCombatDamage (Overhead +/- and Combat HP Loss)..." << std::endl;
+    using namespace ReligionSim;
+    WorldMap dummyMap(40, 40);
+    Humano h(1, "Grog", 20.0f, 20.0f);
+
+    assert(h.getDevocion() == 0.80f);
+    assert(h.getSalud() == 100.0f);
+    assert(h.getHumanUnit().hitPoints == 100.0f);
+    assert(h.getFaithIndicatorSign() == 0);
+
+    // 1. Aumento de fe genera '+' verde (+1)
+    h.setDevocion(0.95f);
+    assert(h.getFaithIndicatorSign() == +1);
+    assert(h.getFaithIndicatorTimer() > 1.0f);
+
+    // 2. Disminución de fe genera '+' rojo (-1)
+    h.setDevocion(0.70f);
+    assert(h.getFaithIndicatorSign() == -1);
+    assert(h.getFaithIndicatorTimer() > 1.0f);
+
+    // 3. Expiración natural del indicador con dt
+    h.actualizar(2.0f, dummyMap);
+    assert(h.getFaithIndicatorSign() == 0);
+    assert(h.getFaithIndicatorTimer() == 0.0f);
+
+    // 4. Recepción de daño reduce puntos de vida (m_salud y m_humanUnit.hitPoints)
+    h.recibirDano(35.0f);
+    assert(std::abs(h.getSalud() - 65.0f) < 0.01f);
+    assert(std::abs(h.getHumanUnit().hitPoints - 65.0f) < 0.01f);
+    assert(h.getTimerDano() > 0.0f);
+    assert(h.estaVivo());
+    assert(!h.estaMuerto());
+
+    // Muerte al llegar a cero puntos de vida
+    h.recibirDano(100.0f);
+    assert(h.getSalud() == 0.0f);
+    assert(h.estaMuerto());
+    assert(!h.estaVivo());
+    assert(h.getTimerMuerte() > 0.0f);
+
+    // 5. Escaramuza, ataque y muerte entre unidades rivales en GestorHumanos
+    GestorHumanos gestor;
+    Humano a(10, "Fanatico Sol", 15.0f, 15.0f);
+    a.setReligionId(1);
+    a.setRole(CommunityRole::ZEALOT);
+    a.cambiarAccion(AccionHumano::ATACAR);
+
+    Humano b(20, "Aldeano Luna", 15.7f, 15.7f);
+    b.setReligionId(2);
+    b.cambiarAccion(AccionHumano::IDLE);
+
+    gestor.agregarHumano(a);
+    gestor.agregarHumano(b);
+
+    float saludInicialB = gestor.getHumanos()[1].getSalud();
+    gestor.actualizar(0.5f, dummyMap);
+
+    // b debe haber perdido puntos de vida al ser atacado por el fanático rival
+    assert(gestor.getHumanos()[1].getSalud() < saludInicialB);
+    assert(gestor.getHumanos()[1].getHumanUnit().hitPoints < saludInicialB);
+    assert(gestor.getHumanos()[1].getTimerDano() > 0.0f);
+
+    // Infligir daño letal a b: debe fallecer y ser retirado tras su animación de muerte
+    gestor.getHumanos()[1].recibirDano(100.0f);
+    assert(gestor.getHumanos()[1].estaMuerto());
+    gestor.actualizar(2.0f, dummyMap);
+    assert(gestor.getHumanos().size() == 1);
+    assert(gestor.getHumanos()[0].getId() == 10);
+
+    std::cout << "  -> testFaithFeedbackAndCombatDamage PASSED! Green/Red faith feedback, HP combat loss and unit death verified." << std::endl;
+}
+
 int main() {
     std::cout << "========================================" << std::endl;
     std::cout << "     RUNNING RELIGION SIMULATOR TESTS   " << std::endl;
@@ -459,6 +532,7 @@ int main() {
     testModularUISystem();
     testFirstEraAIController();
     testHumanAIController();
+    testFaithFeedbackAndCombatDamage();
 
     std::cout << "========================================" << std::endl;
     std::cout << "      ALL TESTS PASSED SUCCESSFULLY!    " << std::endl;

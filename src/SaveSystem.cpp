@@ -241,6 +241,7 @@ bool SaveSystem::loadWorld(Game& game, const std::string& worldFolderName) {
 
     int currentYear = -4000;
     int mapW = 48, mapH = 48;
+    (void)mapW; (void)mapH;
     std::string godName, religionName;
     uint32_t seed = 42;
 

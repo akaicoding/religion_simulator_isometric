@@ -4,6 +4,8 @@
 #include <chrono>
 #include <thread>
 #include <map>
+#include <cctype>
+#include <ctime>
 
 #if __has_include(<X11/Xlib.h>) && __has_include(<X11/keysym.h>)
 #define HAS_X11 1
@@ -20,6 +22,9 @@ Game::Game(int windowWidth, int windowHeight)
       m_camera(windowWidth, windowHeight),
       m_timeline(-4000, 2200),
       m_renderer(windowWidth, windowHeight) {
+    m_fog.reset(m_map.getWidth(), m_map.getHeight());
+    m_fog.setPlayerReligionId(PLAYER_RELIGION_ID);
+    m_renderer.setFogOfWar(&m_fog);
 }
 
 Game::~Game() {}
@@ -45,6 +50,9 @@ void Game::update(float deltaTime) {
     }
 
     m_camera.update(deltaTime);
+
+    // La niebla de la fe se recalcula a partir del pueblo del jugador cada fotograma
+    m_fog.update(m_map, m_gestorHumanos);
 
     if (m_commandFeedbackTimer > 0.0f) {
         m_commandFeedbackTimer = std::max(0.0f, m_commandFeedbackTimer - deltaTime);
@@ -138,6 +146,8 @@ void Game::update(float deltaTime) {
         }
         m_timeline.recordSnapshot(m_map.getTotalWorldPopulation(), domMap, followers);
     }
+
+    refreshFaithFog();
 }
 
 void Game::render() {
@@ -152,11 +162,13 @@ void Game::render() {
     } else if (m_gameState == GameState::Options) {
         m_renderer.renderOptionsMenu(m_hoveredMenuButtonId);
     } else {
+        m_renderer.setFogOfWar(&m_fog);
         m_renderer.render(m_map, m_registry, m_timeline, m_eventLine,
                           m_replication, m_gestorHumanos, m_camera, m_selectedCell, m_mapMode,
                           m_creationConfig);
         m_renderer.renderCommandConsole(m_commandBoxOpen, m_commandInput,
-                                        m_cheatSelectorActive, m_commandFeedback);
+                                        m_cheatSelectorActive, m_commandFeedback,
+                                        m_cheatLuminusActive);
     }
 
     m_renderer.drawCursor(static_cast<int>(m_mouseX), static_cast<int>(m_mouseY));
@@ -239,11 +251,25 @@ void Game::buildHolySiteAtSelection() {
 }
 
 void Game::processButtonAction(int buttonId) {
+    // El desplegable de opciones sólo se mantiene abierto al pulsar su propio botón MENU
+    if (buttonId != 400) {
+        m_renderer.setOptionsDropdownOpen(false);
+    }
+
     switch (buttonId) {
+        case 400: // MENU -> abrir/cerrar el desplegable de opciones de partida
+            m_renderer.setOptionsDropdownOpen(!m_renderer.isOptionsDropdownOpen());
+            break;
+        case 405: // CONSOLA DE TRUCOS (equivale a pulsar Enter)
+            m_commandBoxOpen = true;
+            m_commandInput.clear();
+            break;
+
         case 101: m_mapMode = RenderMapMode::ReligionDominance; break;
         case 102: m_mapMode = RenderMapMode::TerrainBiomes; break;
         case 103: m_mapMode = RenderMapMode::SyncretismHeatmap; break;
         case 104: m_mapMode = RenderMapMode::AdvancementEra; break;
+        case 105: m_mapMode = RenderMapMode::Units; break;
 
         case 201:
             m_timeEngine.togglePause();
@@ -269,7 +295,10 @@ void Game::processButtonAction(int buttonId) {
         case 302: triggerSchismAtSelection(); break;
         case 303: buildHolySiteAtSelection(); break;
         case 304: m_camera.reset(m_map.getWidth(), m_map.getHeight()); break;
-        case 401: saveCurrentGame(); break; // Guardar
+        case 401:
+            saveCurrentGame();
+            showFeedback("PARTIDA GUARDADA EXITOSAMENTE", 3.5f);
+            break;
         case 402: // Menu
             saveCurrentGame();
             m_gameState = GameState::MainMenu;
@@ -421,17 +450,21 @@ void Game::onMouseDown(int button, float x, float y) {
             processButtonAction(btnId);
             return;
         }
+        // Un clic fuera del desplegable de opciones lo cierra (sin actuar sobre el mundo)
+        if (m_renderer.isOptionsDropdownOpen()) {
+            m_renderer.setOptionsDropdownOpen(false);
+            return;
+        }
 
         const int botH = 118;
         const int botY = m_windowHeight - botH;
 
-        // 2. Minimapa Clic (Zona Amarilla: derecha inferior)
+        // 2. Minimapa Clic (panel inferior derecho)
         // Mover la cámara directamente al hacer clic en el minimapa
         const int amarilloX = static_cast<int>(m_windowWidth * 0.815f);
         if (x >= amarilloX && y >= botY) {
-            int mmSize = 92;
-            int mmX = amarilloX + (m_windowWidth - amarilloX - mmSize) / 2;
-            int mmY = botY + 20;
+            int mmSize = 92, mmX = 0, mmY = 0;
+            m_renderer.getMinimapRect(mmX, mmY, mmSize);
             if (x >= mmX && x <= mmX + mmSize && y >= mmY && y <= mmY + mmSize) {
                 float normX = (x - mmX) / static_cast<float>(mmSize);
                 float normY = (y - mmY) / static_cast<float>(mmSize);
@@ -480,11 +513,21 @@ void Game::onMouseDown(int button, float x, float y) {
             int gx = 0, gy = 0;
             m_camera.screenToGrid(x, y, gx, gy);
 
-            // Primero buscar si se hizo clic directamente sobre el sprite de un aldeano en pantalla
-            int humanoId = m_gestorHumanos.buscarHumanoEnPantalla(x, y, m_camera, m_map);
+            // Primero buscar si se hizo clic directamente sobre el sprite de un aldeano en pantalla.
+            // Fog of War: sólo se pueden seleccionar unidades del pueblo del jugador
+            // (salvo con el truco SELECTOR, que permite seleccionar cualquier unidad).
+            const int onlyRel = m_cheatSelectorActive ? -1 : PLAYER_RELIGION_ID;
+            int humanoId = m_gestorHumanos.buscarHumanoEnPantalla(x, y, m_camera, m_map, onlyRel);
             if (humanoId <= 0) {
                 humanoId = m_gestorHumanos.buscarHumanoCercano(static_cast<float>(gx) + 0.5f,
-                                                               static_cast<float>(gy) + 0.5f, 0.85f);
+                                                               static_cast<float>(gy) + 0.5f, 0.85f, onlyRel);
+            }
+            if (humanoId > 0 && !m_cheatSelectorActive) {
+                const Humano* cand = nullptr;
+                for (const auto& hh : m_gestorHumanos.getHumanos()) {
+                    if (hh.getId() == humanoId) { cand = &hh; break; }
+                }
+                if (!cand || cand->getReligionId() != PLAYER_RELIGION_ID) humanoId = -1;
             }
 
             if (humanoId > 0) {
@@ -496,6 +539,7 @@ void Game::onMouseDown(int button, float x, float y) {
             } else {
                 m_gestorHumanos.seleccionarHumano(-1);
                 if (m_map.isValid(gx, gy)) {
+                    // Las celdas ocultas por la niebla no revelan información
                     selectCell(gx, gy);
                 }
             }
@@ -686,6 +730,7 @@ void Game::onKeyPress(int keySym) {
         case '2': m_mapMode = RenderMapMode::TerrainBiomes; break;
         case '3': m_mapMode = RenderMapMode::SyncretismHeatmap; break;
         case '4': m_mapMode = RenderMapMode::AdvancementEra; break;
+        case '5': m_mapMode = RenderMapMode::Units; break;
         case '+': case '=': m_camera.zoomBy(1.2f, m_windowWidth / 2.0f, m_windowHeight / 2.0f); break;
         case '-': case '_': m_camera.zoomBy(0.83f, m_windowWidth / 2.0f, m_windowHeight / 2.0f); break;
         case 'w': case 'W': m_camera.pan(0, 40); break;
@@ -720,12 +765,88 @@ void Game::executeCommand(const std::string& rawCmd) {
         } else {
             m_commandFeedback = "TRUCO 'SELECTOR' DESACTIVADO";
         }
-        m_commandFeedbackTimer = 5.0f;
-        std::cout << "[Comando] " << m_commandFeedback << std::endl;
+        showFeedback(m_commandFeedback, 5.0f);
+    } else if (cmd == "LUMINUS") {
+        m_cheatLuminusActive = !m_cheatLuminusActive;
+        m_fog.setEnabled(!m_cheatLuminusActive);
+        if (!m_cheatLuminusActive) {
+            refreshFaithFog();
+        }
+        showFeedback(m_cheatLuminusActive
+                         ? "TRUCO 'LUMINUS' ACTIVADO: NIEBLA DE LA FE DISIPADA"
+                         : "TRUCO 'LUMINUS' DESACTIVADO: LA NIEBLA DE LA FE REGRESA",
+                     5.0f);
     } else {
-        m_commandFeedback = "COMANDO DESCONOCIDO: '" + cmd + "' (USA: SELECTOR)";
-        m_commandFeedbackTimer = 4.0f;
-        std::cout << "[Comando] " << m_commandFeedback << std::endl;
+        showFeedback("COMANDO DESCONOCIDO: '" + cmd + "' (USA: SELECTOR | LUMINUS)", 4.0f);
+    }
+}
+
+void Game::showFeedback(const std::string& msg, float seconds) {
+    m_commandFeedback = msg;
+    m_commandFeedbackTimer = seconds;
+    std::cout << "[Comando] " << msg << std::endl;
+}
+
+int Game::resolvePlayerReligionId() const {
+    for (const auto& r : m_registry.getAllReligions()) {
+        if (r.name == m_creationConfig.religionName) {
+            return r.id;
+        }
+    }
+    return PLAYER_RELIGION_ID;
+}
+
+void Game::refreshFaithFog() {
+    m_fog.setEnabled(!m_cheatLuminusActive);
+    if (!m_fog.isEnabled()) {
+        return;
+    }
+    m_fog.update(m_map, m_gestorHumanos);
+}
+
+void Game::initFaithFog(int playerRelId) {
+    m_cheatLuminusActive = false;
+    m_fog.reset(m_map.getWidth(), m_map.getHeight());
+    m_fog.setPlayerReligionId(playerRelId > 0 ? playerRelId : PLAYER_RELIGION_ID);
+    m_fog.setEnabled(true);
+    m_fog.update(m_map, m_gestorHumanos);
+    m_renderer.setFogOfWar(&m_fog);
+    focusCameraOnPlayerFaith();
+    std::cout << "[Niebla] Vision de la fe activa para religion #" << m_fog.getPlayerReligionId()
+              << " (truco LUMINUS para disiparla)." << std::endl;
+}
+
+void Game::focusCameraOnPlayerFaith() {
+    const int rel = m_fog.getPlayerReligionId();
+    int chamanId = m_gestorHumanos.buscarChamanDeReligion(rel);
+    if (chamanId > 0) {
+        m_gestorHumanos.seleccionarHumano(chamanId);
+        const Humano* ch = m_gestorHumanos.getHumanoSeleccionado();
+        if (ch && m_map.isValid(ch->getCeldaX(), ch->getCeldaY())) {
+            m_camera.centerOnCell(ch->getCeldaX(), ch->getCeldaY(), m_map.getWidth(), m_map.getHeight());
+            selectCell(ch->getCeldaX(), ch->getCeldaY());
+            return;
+        }
+    }
+
+    for (const auto& hObj : m_gestorHumanos.getHumanos()) {
+        if (hObj.getReligionId() == rel && m_map.isValid(hObj.getCeldaX(), hObj.getCeldaY())) {
+            m_camera.centerOnCell(hObj.getCeldaX(), hObj.getCeldaY(), m_map.getWidth(), m_map.getHeight());
+            selectCell(hObj.getCeldaX(), hObj.getCeldaY());
+            return;
+        }
+    }
+
+    for (int y = 0; y < m_map.getHeight(); ++y) {
+        for (int x = 0; x < m_map.getWidth(); ++x) {
+            const Cell& c = m_map.getCell(x, y);
+            int hsRel = (c.holySiteReligionId > 0) ? c.holySiteReligionId : c.dominantReligionId;
+            if (c.hasHolySite && hsRel == rel) {
+                m_camera.centerOnCell(x, y, m_map.getWidth(), m_map.getHeight());
+                selectCell(x, y);
+                return;
+            }
+        }
     }
 }
 
@@ -990,6 +1111,8 @@ void Game::startNewCustomWorld() {
         selectCell(selChaman->getCeldaX(), selChaman->getCeldaY());
     }
 
+    initFaithFog(playerRelId);
+
     // Registrar evento inicial de la epopeya
     m_eventLine.addEvent(
         startYear, EventCategory::BirthOfReligion,
@@ -1090,6 +1213,8 @@ void Game::loadStateFromSave(const WorldMap& map, const ReligionRegistry& regist
         m_gestorHumanos.actualizar(0.0f, m_map);
     }
     m_map.recalculateReligions(m_registry);
+
+    initFaithFog(resolvePlayerReligionId());
 
     m_gameState = GameState::Playing;
     saveCurrentGame();

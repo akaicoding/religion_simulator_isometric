@@ -279,7 +279,8 @@ enum class RenderMapMode {
     TerrainBiomes,
     SyncretismHeatmap,
     AdvancementEra,
-    PopulationDensity
+    PopulationDensity,
+    Units // Vista de unidades: resalta a cada aldeano/chamán con su color de fe
 };
 
 // Isometric Constants

@@ -48,6 +48,13 @@ public:
     // Niebla de Guerra de la Fe: la visión proviene sólo del pueblo del jugador
     void setFogOfWar(const FaithFogOfWar* fog) { m_fog = fog; }
 
+    // Desplegable de opciones de partida (botón MENU de la barra superior)
+    void setOptionsDropdownOpen(bool open) { m_dropdownOpen = open; }
+    bool isOptionsDropdownOpen() const { return m_dropdownOpen; }
+
+    // Rectángulo del minimapa dentro del panel inferior derecho (compartido con el hit-test de Game)
+    void getMinimapRect(int& x, int& y, int& size) const;
+
     // Pantalla de Menú Principal, Creación de Mundo y Opciones
     void renderMainMenu(int hoveredButtonId);
     void renderOptionsMenu(int hoveredButtonId);
@@ -115,6 +122,8 @@ private:
     TileSet m_tileSet;
     TileSet m_shamanTileSet;
     std::vector<UIButton> m_buttons;
+    std::vector<UIButton> m_dropdownButtons; // sólo clicables mientras el desplegable está abierto
+    bool m_dropdownOpen{false};
     std::vector<UIButton> m_menuButtons;
     std::vector<UIButton> m_optionsButtons;
     std::vector<UIButton> m_creationButtons;
@@ -151,10 +160,12 @@ private:
                          RenderMapMode mode);
     void renderMinimap(int mmX, int mmY, int mmW, int mmH,
                        const WorldMap& map, const ReligionRegistry& registry,
+                       const GestorHumanos& humanos,
                        const IsometricCamera& camera, RenderMapMode mode);
     void renderInspector(const WorldMap& map, const ReligionRegistry& registry,
                          const Point2i& selectedCell);
     void renderTimelineAndEvents(const Timeline& timeline, const EventLine& eventLine);
+    void renderOptionsDropdown();
 };
 
 } // namespace ReligionSim

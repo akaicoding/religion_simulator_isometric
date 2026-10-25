@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -O3 -Iinclude
+CXXFLAGS = -std=c++20 -Wall -Wextra -O3 -Iinclude -MMD -MP
 LDFLAGS = -lX11 -lGL -lpthread
 
 SRC_DIR = src
@@ -66,3 +66,5 @@ run: $(TARGET)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR) *.ppm
+
+-include $(wildcard $(BUILD_DIR)/*.d)

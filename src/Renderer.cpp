@@ -303,46 +303,78 @@ Renderer::~Renderer() {
     closeWindow();
 }
 
+void Renderer::getMinimapRect(int& x, int& y, int& size) const {
+    // Panel inferior derecho: minimapa a la izquierda, botones de vista a su derecha
+    const int amarilloX = static_cast<int>(m_width * 0.185f) + static_cast<int>(m_width * 0.63f);
+    size = 92;
+    x = amarilloX + 8;
+    y = m_height - 118 + 20;
+}
+
 void Renderer::initUI() {
     m_buttons.clear();
+    m_dropdownButtons.clear();
 
-    // Top Bar - Sección Roja (Opciones de la partida):
-    // Ubicada a la derecha de la barra superior (desde x = m_width * 0.56f hasta m_width)
-    float redStartX = m_width * 0.56f + 10.0f;
-    float topBtnH = 22.0f;
-    float topBtnY = 5.0f;
+    const int botH = 118;
+    const float botY = static_cast<float>(m_height - botH);
+    const int azulX = static_cast<int>(m_width * 0.185f);
+    const int azulW = static_cast<int>(m_width * 0.63f);
+    const int amarilloX = azulX + azulW;
+    const int amarilloW = m_width - amarilloX;
 
-    // Controles de velocidad y estado
-    m_buttons.push_back({201, redStartX, topBtnY, 52.0f, topBtnH, "PAUSA", false});
-    m_buttons.push_back({202, redStartX + 56.0f, topBtnY, 34.0f, topBtnH, "1x", true});
-    m_buttons.push_back({203, redStartX + 94.0f, topBtnY, 34.0f, topBtnH, "2x", false});
-    m_buttons.push_back({204, redStartX + 132.0f, topBtnY, 34.0f, topBtnH, "5x", false});
+    // Top Bar - Panel de Opciones: sólo el botón MENU (abre el desplegable de opciones de partida)
+    m_buttons.push_back({400, static_cast<float>(m_width) - 110.0f, 5.0f, 100.0f, 22.0f, "MENU", false});
 
-    // Acciones de partida en barra roja
-    m_buttons.push_back({401, redStartX + 172.0f, topBtnY, 68.0f, topBtnH, "GUARDAR", false});
-    m_buttons.push_back({304, redStartX + 244.0f, topBtnY, 60.0f, topBtnH, "RESET", false});
-    m_buttons.push_back({402, redStartX + 308.0f, topBtnY, 52.0f, topBtnH, "MENU", false});
+    // Desplegable de opciones de partida (debajo del botón MENU)
+    {
+        const float ddW = 200.0f;
+        const float ddX = static_cast<float>(m_width) - ddW - 10.0f;
+        const float ddY = 40.0f;
+        const float itemH = 24.0f;
+        const float gap = 4.0f;
+        m_dropdownButtons.push_back({401, ddX + 6.0f, ddY + 6.0f + 0 * (itemH + gap), ddW - 12.0f, itemH, "GUARDAR PARTIDA", false});
+        m_dropdownButtons.push_back({304, ddX + 6.0f, ddY + 6.0f + 1 * (itemH + gap), ddW - 12.0f, itemH, "REINICIAR CAMARA", false});
+        m_dropdownButtons.push_back({405, ddX + 6.0f, ddY + 6.0f + 2 * (itemH + gap), ddW - 12.0f, itemH, "CONSOLA DE TRUCOS", false});
+        m_dropdownButtons.push_back({402, ddX + 6.0f, ddY + 6.0f + 3 * (itemH + gap), ddW - 12.0f, itemH, "SALIR AL MENU PRINCIPAL", false});
+    }
 
-    // Bottom Bar - Sección Azul (Información de la simulación, modos de vista e intervenciones divinas):
-    // Ubicada en la zona central inferior (x = m_width * 0.185f hasta m_width * 0.815f, altura y = m_height - 110)
-    float blueStartX = m_width * 0.185f + 12.0f;
-    float botBtnY = m_height - 36.0f;
-    float botBtnH = 24.0f;
+    // Panel central inferior: controles de la simulación centrados DEBAJO de la línea de tiempo
+    const float rowY = static_cast<float>(m_height) - 36.0f;
+    const float rowH = 24.0f;
+    {
+        const float totalW = 52.0f + 34.0f * 3 + 4.0f * 3;
+        float cx = static_cast<float>(azulX) + (static_cast<float>(azulW) - totalW) * 0.5f;
+        m_buttons.push_back({201, cx, rowY, 52.0f, rowH, "PAUSA", false});
+        m_buttons.push_back({202, cx + 56.0f, rowY, 34.0f, rowH, "1x", true});
+        m_buttons.push_back({203, cx + 94.0f, rowY, 34.0f, rowH, "2x", false});
+        m_buttons.push_back({204, cx + 132.0f, rowY, 34.0f, rowH, "5x", false});
+    }
 
-    // Modos de visualización
-    m_buttons.push_back({101, blueStartX, botBtnY, 65.0f, botBtnH, "FE", true});
-    m_buttons.push_back({102, blueStartX + 69.0f, botBtnY, 75.0f, botBtnH, "BIOMAS", false});
-    m_buttons.push_back({103, blueStartX + 148.0f, botBtnY, 95.0f, botBtnH, "SINCRETISMO", false});
-    m_buttons.push_back({104, blueStartX + 247.0f, botBtnY, 65.0f, botBtnH, "ERAS", false});
+    // Intervenciones divinas del jugador (alineadas a la derecha de la misma fila)
+    {
+        const float totalW = 90.0f + 70.0f + 76.0f + 4.0f * 2;
+        float ix = static_cast<float>(azulX + azulW) - 16.0f - totalW;
+        m_buttons.push_back({301, ix, rowY, 90.0f, rowH, "+ SINCRETISMO", false});
+        m_buttons.push_back({302, ix + 94.0f, rowY, 70.0f, rowH, "+ CISMA", false});
+        m_buttons.push_back({303, ix + 168.0f, rowY, 76.0f, rowH, "+ TEMPLO", false});
+    }
 
-    // Intervenciones divinas del jugador
-    m_buttons.push_back({301, blueStartX + 320.0f, botBtnY, 100.0f, botBtnH, "+ SINCRETISMO", false});
-    m_buttons.push_back({302, blueStartX + 424.0f, botBtnY, 80.0f, botBtnH, "+ CISMA", false});
-    m_buttons.push_back({303, blueStartX + 508.0f, botBtnY, 85.0f, botBtnH, "+ TEMPLO", false});
+    // Panel del minimapa: botones para cambiar la vista del mapa (a la derecha del minimapa)
+    {
+        const float vbX = static_cast<float>(amarilloX) + 8.0f + 92.0f + 10.0f;
+        const float vbW = static_cast<float>(amarilloW) - (vbX - static_cast<float>(amarilloX)) - 8.0f;
+        const float vbH = 18.0f;
+        const float vbGap = 3.0f;
+        const float vbY = botY + 8.0f;
+        m_buttons.push_back({101, vbX, vbY + 0 * (vbH + vbGap), vbW, vbH, "FE", true});
+        m_buttons.push_back({102, vbX, vbY + 1 * (vbH + vbGap), vbW, vbH, "BIOMAS", false});
+        m_buttons.push_back({105, vbX, vbY + 2 * (vbH + vbGap), vbW, vbH, "UNIDADES", false});
+        m_buttons.push_back({103, vbX, vbY + 3 * (vbH + vbGap), vbW, vbH, "SINCRETISMO", false});
+        m_buttons.push_back({104, vbX, vbY + 4 * (vbH + vbGap), vbW, vbH, "ERAS", false});
+    }
 
     // Bottom Bar - Sección Verde (Opciones de la Unidad / Señales Divinas del Chamán):
     float verdeW = m_width * 0.185f;
-    float botY = m_height - 118.0f;
     float halfVerdeBtnW = (verdeW - 20.0f) * 0.5f;
     m_buttons.push_back({701, 8.0f, botY + 58.0f, halfVerdeBtnW, 24.0f, "1. VISION", false});
     m_buttons.push_back({702, 12.0f + halfVerdeBtnW, botY + 58.0f, halfVerdeBtnW, 24.0f, "2. CONGREGAR", false});
@@ -509,6 +541,15 @@ int Renderer::checkLoadMenuButtonClicked(float mouseX, float mouseY, int savesCo
 }
 
 int Renderer::checkButtonClicked(float mouseX, float mouseY) const {
+    // El desplegable de opciones tiene prioridad mientras está abierto
+    if (m_dropdownOpen) {
+        for (const auto& btn : m_dropdownButtons) {
+            if (mouseX >= btn.x && mouseX <= btn.x + btn.width &&
+                mouseY >= btn.y && mouseY <= btn.y + btn.height) {
+                return btn.id;
+            }
+        }
+    }
     for (const auto& btn : m_buttons) {
         if (mouseX >= btn.x && mouseX <= btn.x + btn.width &&
             mouseY >= btn.y && mouseY <= btn.y + btn.height) {
@@ -1053,6 +1094,7 @@ void Renderer::render(const WorldMap& map, const ReligionRegistry& registry,
                       const WorldCreationConfig& playerConfig) {
     renderWorld(map, registry, replication, humanos, camera, selectedCell, mode);
     renderUI(map, registry, timeline, eventLine, selectedCell, mode, humanos, camera, playerConfig);
+    renderOptionsDropdown(); // siempre encima del resto del HUD
 }
 
 void Renderer::renderWorld(const WorldMap& map, const ReligionRegistry& registry,
@@ -1450,6 +1492,19 @@ void Renderer::renderWorld(const WorldMap& map, const ReligionRegistry& registry
             if (r) aura = r->color;
             bool esSel = (hObj.getId() == idSeleccionado);
             const TileSet& ts = hObj.esChaman() ? m_shamanTileSet : m_tileSet;
+
+            // Vista UNIDADES: anillo isométrico con el color de fe bajo cada aldeano (doble anillo para chamanes)
+            if (mode == RenderMapMode::Units) {
+                int ucx = std::clamp(hObj.getCeldaX(), 0, w - 1);
+                int ucy = std::clamp(hObj.getCeldaY(), 0, h - 1);
+                Vec2 ufoot = camera.gridToScreen(hObj.getX(), hObj.getY(), map.getCell(ucx, ucy).elevation);
+                float ur = (hObj.esChaman() ? 15.0f : 10.0f) * zoom;
+                drawDiamondOutline(ufoot.x, ufoot.y, ur, ur * 0.5f, aura);
+                drawDiamondOutline(ufoot.x, ufoot.y, ur + 1.0f, ur * 0.5f + 0.5f, aura);
+                if (hObj.esChaman()) {
+                    drawDiamondOutline(ufoot.x, ufoot.y, ur * 0.6f, ur * 0.3f, Palette::DIVINE_GOLD);
+                }
+            }
             hObj.renderizar(m_framebuffer.data(), m_width, m_height, camera, map, ts, aura, esSel);
 
             // Si es un Chamán canalizando una señal divina, proyectar haz solar sagrado
@@ -2020,30 +2075,57 @@ void Renderer::renderTopBar(const WorldMap& map, const ReligionRegistry& registr
     drawRectOutline(rojaX, 0, rojaW, topH, ColorRGB{75, 52, 38});
     drawLine(rojaX, topH, m_width, topH, Palette::DIVINE_GOLD);
 
-    // Renderizar botones del panel de opciones (Pausa, 1x, 2x, 5x, Guardar, Reset, Menu)
+    // Panel de Opciones: botón MENU que despliega las opciones de partida
+    (void)timeline;
     for (const auto& btn : m_buttons) {
         if (btn.y >= topH) continue; // solo botones del top bar
 
-        bool isSpeedActive = false;
-        if (btn.id == 201 && timeline.isPaused()) isSpeedActive = true;
-        if (btn.id == 202 && !timeline.isPaused() && timeline.getSpeedMultiplier() == 1) isSpeedActive = true;
-        if (btn.id == 203 && !timeline.isPaused() && timeline.getSpeedMultiplier() == 2) isSpeedActive = true;
-        if (btn.id == 204 && !timeline.isPaused() && timeline.getSpeedMultiplier() >= 5) isSpeedActive = true;
+        bool isActive = (btn.id == 400 && m_dropdownOpen);
 
         int bx = static_cast<int>(btn.x);
         int by = static_cast<int>(btn.y);
         int bw = static_cast<int>(btn.width);
         int bh = static_cast<int>(btn.height);
 
-        if (isSpeedActive) {
+        std::string label = btn.label;
+        if (btn.id == 400) label += m_dropdownOpen ? " ^" : " v";
+
+        if (isActive) {
             drawRect(bx, by, bw, bh, ColorRGB{52, 32, 24});
             drawRectOutline(bx, by, bw, bh, Palette::DIVINE_GOLD);
-            drawText(bx + (bw - static_cast<int>(btn.label.size() * 6)) / 2, by + 6, btn.label, ColorRGB{255, 235, 120}, 1);
+            drawText(bx + (bw - static_cast<int>(label.size() * 6)) / 2, by + 8, label, ColorRGB{255, 235, 120}, 1);
         } else {
             drawRect(bx, by, bw, bh, ColorRGB{32, 20, 18});
             drawRectOutline(bx, by, bw, bh, ColorRGB{95, 68, 48});
-            drawText(bx + (bw - static_cast<int>(btn.label.size() * 6)) / 2, by + 6, btn.label, Palette::RELIC_BONE, 1);
+            drawText(bx + (bw - static_cast<int>(label.size() * 6)) / 2, by + 8, label, Palette::RELIC_BONE, 1);
         }
+    }
+}
+
+void Renderer::renderOptionsDropdown() {
+    if (!m_dropdownOpen || m_dropdownButtons.empty()) return;
+
+    // Panel contenedor que envuelve a todos los ítems del desplegable
+    const UIButton& first = m_dropdownButtons.front();
+    const UIButton& last = m_dropdownButtons.back();
+    int px = static_cast<int>(first.x) - 6;
+    int py = static_cast<int>(first.y) - 6;
+    int pw = static_cast<int>(first.width) + 12;
+    int ph = static_cast<int>(last.y + last.height) - py + 6;
+
+    drawRect(px, py, pw, ph, ColorRGB{18, 11, 10}); // #120b0a
+    drawRectOutline(px, py, pw, ph, ColorRGB{75, 52, 38});
+    drawRectOutline(px + 2, py + 2, pw - 4, ph - 4, Palette::DIVINE_GOLD);
+
+    for (const auto& btn : m_dropdownButtons) {
+        int bx = static_cast<int>(btn.x);
+        int by = static_cast<int>(btn.y);
+        int bw = static_cast<int>(btn.width);
+        int bh = static_cast<int>(btn.height);
+        bool danger = (btn.id == 402);
+        drawRect(bx, by, bw, bh, danger ? ColorRGB{58, 18, 16} : ColorRGB{32, 20, 18});
+        drawRectOutline(bx, by, bw, bh, danger ? ColorRGB{150, 60, 50} : ColorRGB{95, 68, 48});
+        drawText(bx + 8, by + (bh - 7) / 2, btn.label, danger ? ColorRGB{255, 190, 170} : Palette::RELIC_BONE, 1);
     }
 }
 
@@ -2081,14 +2163,21 @@ void Renderer::renderBottomBar(const WorldMap& map, const ReligionRegistry& regi
         std::string feName = hRel ? hRel->name : "Fiel Animista";
         drawText(8, botY + 18, ("Fe: " + feName).substr(0, 22), hRel ? hRel->color : Palette::RELIC_BONE, 1);
 
-        // Barra compacta de devoción del Chamán
-        drawText(8, botY + 30, "Dev:", Palette::RELIC_BONE, 1);
-        int barX = 38;
-        int barW = verdeW - barX - 10;
-        drawRect(barX, botY + 30, barW, 7, ColorRGB{12, 7, 6});
-        drawRectOutline(barX, botY + 30, barW, 7, ColorRGB{95, 68, 48});
-        int devW = static_cast<int>(barW * selHumano->getDevocion());
-        drawRect(barX, botY + 30, std::clamp(devW, 0, barW), 7, Palette::DIVINE_GOLD);
+        // Barra compacta de Vida (HP) y devoción del Chamán
+        int halfW = (verdeW - 56) / 2;
+        drawText(8, botY + 30, "HP:", Palette::RELIC_BONE, 1);
+        drawRect(30, botY + 30, halfW, 7, ColorRGB{12, 7, 6});
+        drawRectOutline(30, botY + 30, halfW, 7, ColorRGB{95, 68, 48});
+        int hpW = static_cast<int>(halfW * (selHumano->getSalud() / 100.0f));
+        ColorRGB hpCol = (selHumano->getSalud() > 50.0f) ? ColorRGB{46, 215, 80} : ColorRGB{220, 50, 50};
+        drawRect(30, botY + 30, std::clamp(hpW, 0, halfW), 7, hpCol);
+
+        int devX = 30 + halfW + 10;
+        drawText(devX - 22, botY + 30, "Fe:", Palette::RELIC_BONE, 1);
+        drawRect(devX, botY + 30, halfW, 7, ColorRGB{12, 7, 6});
+        drawRectOutline(devX, botY + 30, halfW, 7, ColorRGB{95, 68, 48});
+        int devW = static_cast<int>(halfW * selHumano->getDevocion());
+        drawRect(devX, botY + 30, std::clamp(devW, 0, halfW), 7, Palette::DIVINE_GOLD);
 
         // Sección de Opciones de la Unidad: Comunicación y Señales Divinas
         bool isChanneling = (selHumano->getTimerSenalDivina() > 0.0f);
@@ -2110,73 +2199,96 @@ void Renderer::renderBottomBar(const WorldMap& map, const ReligionRegistry& regi
             drawText(txtX, by + 8, btn.label, ColorRGB{255, 240, 180}, 1);
         }
     } else if (selHumano) {
-        const HumanUnit& hu = selHumano->getHumanUnit();
-        std::string roleTag = "ALDEANO";
-        switch (hu.role) {
-            case CommunityRole::FORAGER: roleTag = "RECOLECTOR"; break;
-            case CommunityRole::SHAMAN:  roleTag = "CHAMAN"; break;
-            case CommunityRole::PROPHET: roleTag = "PROFETA"; break;
-            case CommunityRole::ELDER:   roleTag = "ANCIANO"; break;
-            case CommunityRole::ZEALOT:  roleTag = "FANATICO"; break;
+        if (selHumano->estaMuerto()) {
+            drawText(8, botY + 6, ("CAIDO: " + selHumano->getNombre()).substr(0, 23), ColorRGB{220, 50, 50}, 1);
+            drawText(8, botY + 18, "Ha muerto en combate", Palette::BLOOD_RUBY, 1);
+            drawText(8, botY + 32, "HP: 0/100 (Fallecido)", ColorRGB{200, 70, 70}, 1);
+            drawText(8, botY + 46, "Retornando a la tierra...", Palette::RELIC_BONE, 1);
+
+            int bx = 8;
+            int by = botY + 86;
+            int bw = verdeW - 16;
+            int bh = 24;
+            drawRect(bx, by, bw, bh, ColorRGB{32, 20, 18});
+            drawRectOutline(bx, by, bw, bh, Palette::DIVINE_GOLD);
+            std::string chLabel = "SELECCIONAR CHAMAN";
+            drawText(bx + std::max(2, (bw - static_cast<int>(chLabel.size() * 6)) / 2), by + 8, chLabel, ColorRGB{255, 235, 140}, 1);
+        } else {
+            const HumanUnit& hu = selHumano->getHumanUnit();
+            std::string roleTag = "ALDEANO";
+            switch (hu.role) {
+                case CommunityRole::FORAGER: roleTag = "RECOLECTOR"; break;
+                case CommunityRole::SHAMAN:  roleTag = "CHAMAN"; break;
+                case CommunityRole::PROPHET: roleTag = "PROFETA"; break;
+                case CommunityRole::ELDER:   roleTag = "ANCIANO"; break;
+                case CommunityRole::ZEALOT:  roleTag = "FANATICO"; break;
+            }
+            bool esRival = (selHumano->getReligionId() != playerRel);
+            if (esRival) roleTag = "AJENO " + roleTag; // unidad de otra fe (sólo accesible con SELECTOR)
+            drawText(8, botY + 6, (roleTag + ": " + selHumano->getNombre()).substr(0, 23),
+                     esRival ? ColorRGB{230, 90, 80} : Palette::DIVINE_GOLD, 1);
+
+            const Religion* hRel = registry.getReligion(selHumano->getReligionId());
+            std::string feName = hRel ? hRel->name : "Fiel Animista";
+            drawText(8, botY + 18, ("Fe: " + feName).substr(0, 22), hRel ? hRel->color : Palette::RELIC_BONE, 1);
+
+            std::string axesStr = "En:" + std::to_string(static_cast<int>(hu.energy)) +
+                                  " Nut:" + std::to_string(static_cast<int>(hu.nutritionalState)) +
+                                  " Iner:" + std::to_string(static_cast<int>(hu.conversionInertia));
+            drawText(8, botY + 30, axesStr.substr(0, 24), Palette::RELIC_BONE, 1);
+
+            // Barra de Vida (HP) y Devoción
+            int halfW = (verdeW - 56) / 2;
+            drawText(8, botY + 42, "HP:", Palette::RELIC_BONE, 1);
+            drawRect(30, botY + 42, halfW, 7, ColorRGB{12, 7, 6});
+            drawRectOutline(30, botY + 42, halfW, 7, ColorRGB{95, 68, 48});
+            int hpW = static_cast<int>(halfW * (selHumano->getSalud() / 100.0f));
+            ColorRGB hpCol = (selHumano->getSalud() > 50.0f) ? ColorRGB{46, 215, 80} : ColorRGB{220, 50, 50};
+            drawRect(30, botY + 42, std::clamp(hpW, 0, halfW), 7, hpCol);
+
+            int devX = 30 + halfW + 10;
+            drawText(devX - 22, botY + 42, "Fe:", Palette::RELIC_BONE, 1);
+            drawRect(devX, botY + 42, halfW, 7, ColorRGB{12, 7, 6});
+            drawRectOutline(devX, botY + 42, halfW, 7, ColorRGB{95, 68, 48});
+            int devW = static_cast<int>(halfW * selHumano->getDevocion());
+            drawRect(devX, botY + 42, std::clamp(devW, 0, halfW), 7, Palette::DIVINE_GOLD);
+
+            // Estado sistémico de la unidad (HumanAIController)
+            std::string stateStr = "IA: ";
+            switch (hu.currentState) {
+                case HumanAIState::SURVIVAL_WORKING: stateStr += "Superviv./Energia"; break;
+                case HumanAIState::WORSHIPING:       stateStr += "Culto / Devocion"; break;
+                case HumanAIState::SOCIALIZING:      stateStr += "Cohesion / Tribu"; break;
+                case HumanAIState::CONVERTING:       stateStr += "Convirtiendo Fe"; break;
+                case HumanAIState::MIGRATING:        stateStr += "Migrando"; break;
+                default:                             stateStr += "En Reposo"; break;
+            }
+            drawText(8, botY + 56, stateStr.substr(0, 23), Palette::RELIC_BONE, 1);
+
+            // Estado de animación física
+            std::string actStr = "Accion: ";
+            switch (selHumano->getAccion()) {
+                case AccionHumano::IDLE: actStr += "Orando / Quieto"; break;
+                case AccionHumano::CAMINAR: actStr += "Peregrinando"; break;
+                case AccionHumano::CORRER: actStr += "Migrando"; break;
+                case AccionHumano::RECOLECTAR: actStr += "Recolectando"; break;
+                case AccionHumano::TALAR: actStr += "Cazando / Talando"; break;
+                case AccionHumano::ATACAR: actStr += "Guardia Frontera"; break;
+                case AccionHumano::REZAR: actStr += "Rito Chamanico"; break;
+                default: actStr += "Comercio / Carga"; break;
+            }
+            drawText(8, botY + 70, actStr.substr(0, 22), ColorRGB{200, 185, 165}, 1);
+
+            // Botón en Opciones de Unidad para seleccionar al Chamán del pueblo
+            int bx = 8;
+            int by = botY + 86;
+            int bw = verdeW - 16;
+            int bh = 24;
+            drawRect(bx, by, bw, bh, ColorRGB{32, 20, 18});
+            drawRectOutline(bx, by, bw, bh, Palette::DIVINE_GOLD);
+            std::string chLabel = "IR AL CHAMAN DEL PUEBLO";
+            drawText(bx + std::max(2, (bw - static_cast<int>(chLabel.size() * 6)) / 2), by + 8, chLabel, ColorRGB{255, 235, 140}, 1);
         }
-        bool esRival = (selHumano->getReligionId() != playerRel);
-        if (esRival) roleTag = "AJENO " + roleTag; // unidad de otra fe (sólo accesible con SELECTOR)
-        drawText(8, botY + 6, (roleTag + ": " + selHumano->getNombre()).substr(0, 23),
-                 esRival ? ColorRGB{230, 90, 80} : Palette::DIVINE_GOLD, 1);
-
-        const Religion* hRel = registry.getReligion(selHumano->getReligionId());
-        std::string feName = hRel ? hRel->name : "Fiel Animista";
-        drawText(8, botY + 18, ("Fe: " + feName).substr(0, 22), hRel ? hRel->color : Palette::RELIC_BONE, 1);
-
-        std::string axesStr = "En:" + std::to_string(static_cast<int>(hu.energy)) +
-                              " Nut:" + std::to_string(static_cast<int>(hu.nutritionalState)) +
-                              " Iner:" + std::to_string(static_cast<int>(hu.conversionInertia));
-        drawText(8, botY + 30, axesStr.substr(0, 24), Palette::RELIC_BONE, 1);
-
-        // Barra de devoción / voluntad divina
-        drawText(8, botY + 42, "Dev:", Palette::RELIC_BONE, 1);
-        int barX = 38;
-        int barW = verdeW - barX - 10;
-        drawRect(barX, botY + 42, barW, 7, ColorRGB{12, 7, 6});
-        drawRectOutline(barX, botY + 42, barW, 7, ColorRGB{95, 68, 48});
-        int devW = static_cast<int>(barW * selHumano->getDevocion());
-        drawRect(barX, botY + 42, std::clamp(devW, 0, barW), 7, Palette::DIVINE_GOLD);
-
-        // Estado sistémico de la unidad (HumanAIController)
-        std::string stateStr = "IA: ";
-        switch (hu.currentState) {
-            case HumanAIState::SURVIVAL_WORKING: stateStr += "Superviv./Energia"; break;
-            case HumanAIState::WORSHIPING:       stateStr += "Culto / Devocion"; break;
-            case HumanAIState::SOCIALIZING:      stateStr += "Cohesion / Tribu"; break;
-            case HumanAIState::CONVERTING:       stateStr += "Convirtiendo Fe"; break;
-            case HumanAIState::MIGRATING:        stateStr += "Migrando"; break;
-            default:                             stateStr += "En Reposo"; break;
-        }
-        drawText(8, botY + 56, stateStr.substr(0, 23), Palette::RELIC_BONE, 1);
-
-        // Estado de animación física
-        std::string actStr = "Accion: ";
-        switch (selHumano->getAccion()) {
-            case AccionHumano::IDLE: actStr += "Orando / Quieto"; break;
-            case AccionHumano::CAMINAR: actStr += "Peregrinando"; break;
-            case AccionHumano::CORRER: actStr += "Migrando"; break;
-            case AccionHumano::RECOLECTAR: actStr += "Recolectando"; break;
-            case AccionHumano::TALAR: actStr += "Cazando / Talando"; break;
-            case AccionHumano::ATACAR: actStr += "Guardia Frontera"; break;
-            case AccionHumano::REZAR: actStr += "Rito Chamanico"; break;
-            default: actStr += "Comercio / Carga"; break;
-        }
-        drawText(8, botY + 70, actStr.substr(0, 22), ColorRGB{200, 185, 165}, 1);
-
-        // Botón en Opciones de Unidad para seleccionar al Chamán del pueblo
-        int bx = 8;
-        int by = botY + 86;
-        int bw = verdeW - 16;
-        int bh = 24;
-        drawRect(bx, by, bw, bh, ColorRGB{32, 20, 18});
-        drawRectOutline(bx, by, bw, bh, Palette::DIVINE_GOLD);
-        std::string chLabel = "IR AL CHAMAN DEL PUEBLO";
-        drawText(bx + std::max(2, (bw - static_cast<int>(chLabel.size() * 6)) / 2), by + 8, chLabel, ColorRGB{255, 235, 140}, 1);
     } else {
         drawText(8, botY + 8, "UNIDAD / CHAMAN", Palette::DIVINE_GOLD, 1);
         drawText(8, botY + 28, "Selecciona al Chaman", Palette::RELIC_BONE, 1);
@@ -2235,30 +2347,44 @@ void Renderer::renderBottomBar(const WorldMap& map, const ReligionRegistry& regi
         drawText(cx + 6, cardY + 32, recents[i].description.substr(26, 26), ColorRGB{200, 185, 165}, 1);
     }
 
-    // Botones de acción y modos de vista en la parte inferior del panel de simulación
-    for (const auto& btn : m_buttons) {
-        if (btn.y < botY || btn.x < azulX) continue; // solo botones inferiores de la zona central
-
-        bool isModeActive = false;
-        if (btn.id == 101 && mode == RenderMapMode::ReligionDominance) isModeActive = true;
-        if (btn.id == 102 && mode == RenderMapMode::TerrainBiomes) isModeActive = true;
-        if (btn.id == 103 && mode == RenderMapMode::SyncretismHeatmap) isModeActive = true;
-        if (btn.id == 104 && mode == RenderMapMode::AdvancementEra) isModeActive = true;
-
+    // Botones inferiores: controles de simulación (centro, bajo la línea de tiempo), intervenciones
+    // divinas, y botones de vista del mapa (panel del minimapa, a la derecha)
+    auto isButtonActive = [&](int id) {
+        switch (id) {
+            case 101: return mode == RenderMapMode::ReligionDominance;
+            case 102: return mode == RenderMapMode::TerrainBiomes;
+            case 103: return mode == RenderMapMode::SyncretismHeatmap;
+            case 104: return mode == RenderMapMode::AdvancementEra;
+            case 105: return mode == RenderMapMode::Units;
+            case 201: return timeline.isPaused();
+            case 202: return !timeline.isPaused() && timeline.getSpeedMultiplier() == 1;
+            case 203: return !timeline.isPaused() && timeline.getSpeedMultiplier() == 2;
+            case 204: return !timeline.isPaused() && timeline.getSpeedMultiplier() >= 5;
+            default:  return false;
+        }
+    };
+    auto drawPanelButton = [&](const UIButton& btn) {
+        bool active = isButtonActive(btn.id);
         int bx = static_cast<int>(btn.x);
         int by = static_cast<int>(btn.y);
         int bw = static_cast<int>(btn.width);
         int bh = static_cast<int>(btn.height);
-
-        if (isModeActive) {
+        int ty = by + (bh - 7) / 2;
+        int tx = bx + (bw - static_cast<int>(btn.label.size() * 6)) / 2;
+        if (active) {
             drawRect(bx, by, bw, bh, ColorRGB{52, 32, 24});
             drawRectOutline(bx, by, bw, bh, Palette::DIVINE_GOLD);
-            drawText(bx + (bw - static_cast<int>(btn.label.size() * 6)) / 2, by + 8, btn.label, ColorRGB{255, 235, 120}, 1);
+            drawText(tx, ty, btn.label, ColorRGB{255, 235, 120}, 1);
         } else {
             drawRect(bx, by, bw, bh, ColorRGB{32, 20, 18});
             drawRectOutline(bx, by, bw, bh, ColorRGB{95, 68, 48});
-            drawText(bx + (bw - static_cast<int>(btn.label.size() * 6)) / 2, by + 8, btn.label, Palette::RELIC_BONE, 1);
+            drawText(tx, ty, btn.label, Palette::RELIC_BONE, 1);
         }
+    };
+
+    for (const auto& btn : m_buttons) {
+        if (btn.y < botY || btn.x < azulX || btn.x >= azulX + azulW) continue; // zona central
+        drawPanelButton(btn);
     }
 
     // 3. ZONA AMARILLA (Derecha - 18.5% ancho)
@@ -2271,16 +2397,22 @@ void Renderer::renderBottomBar(const WorldMap& map, const ReligionRegistry& regi
 
     drawText(amarilloX + 10, botY + 6, "MINIMAPA SAGRADO", Palette::DIVINE_GOLD, 1);
 
-    // Marco del Minimapa
-    int mmSize = 92;
-    int mmX = amarilloX + (amarilloW - mmSize) / 2;
-    int mmY = botY + 20;
+    // Marco del Minimapa (a la izquierda del panel)
+    int mmSize = 92, mmX = 0, mmY = 0;
+    getMinimapRect(mmX, mmY, mmSize);
 
-    renderMinimap(mmX, mmY, mmSize, mmSize, map, registry, camera, mode);
+    renderMinimap(mmX, mmY, mmSize, mmSize, map, registry, humanos, camera, mode);
+
+    // Botones de vista del mapa (Fe, Biomas, Unidades, Sincretismo, Eras) junto al minimapa
+    for (const auto& btn : m_buttons) {
+        if (btn.y < botY || btn.x < amarilloX) continue;
+        drawPanelButton(btn);
+    }
 }
 
 void Renderer::renderMinimap(int mmX, int mmY, int mmW, int mmH,
                              const WorldMap& map, const ReligionRegistry& registry,
+                             const GestorHumanos& humanos,
                              const IsometricCamera& camera, RenderMapMode mode) {
     drawRect(mmX, mmY, mmW, mmH, ColorRGB{14, 14, 18});
     drawRectOutline(mmX, mmY, mmW, mmH, Palette::DIVINE_GOLD);
@@ -2308,6 +2440,12 @@ void Renderer::renderMinimap(int mmX, int mmY, int mmW, int mmH,
                 if (r) col = r->color;
             } else if (mode == RenderMapMode::SyncretismHeatmap && !c.isWater() && c.population > 0 && cellVisible) {
                 col = ColorRGB::blend(col, ColorRGB{255, 60, 220}, c.syncreticTension);
+            } else if (mode == RenderMapMode::AdvancementEra && !c.isWater() && cellVisible) {
+                // Vista ERAS: el desarrollo de cada celda tiñe el terreno de dorado
+                col = ColorRGB::blend(col, ColorRGB{240, 200, 70}, std::clamp(c.development * 0.8f, 0.0f, 1.0f));
+            } else if (mode == RenderMapMode::Units && !c.isWater()) {
+                // Vista UNIDADES: terreno atenuado para que resalten los puntos de cada unidad
+                col = ColorRGB::blend(col, ColorRGB{18, 11, 10}, 0.45f);
             }
 
             // Niebla de Guerra de la Fe en el minimapa: bruma #120b0a y memoria atenuada
@@ -2321,6 +2459,23 @@ void Renderer::renderMinimap(int mmX, int mmY, int mmW, int mmH,
             }
 
             m_framebuffer[frameY * m_width + px] = col.toRGBA();
+        }
+    }
+
+    // Vista UNIDADES: un punto por unidad con el color de su fe (los rivales ocultos por la niebla no aparecen)
+    if (mode == RenderMapMode::Units) {
+        for (const auto& hObj : humanos.getHumanos()) {
+            if (isHiddenByFog(hObj.getCeldaX(), hObj.getCeldaY(), hObj.getReligionId())) continue;
+            ColorRGB dot = Palette::RELIC_BONE;
+            if (const Religion* r = registry.getReligion(hObj.getReligionId())) dot = r->color;
+            int ux = mmX + static_cast<int>((hObj.getX() / static_cast<float>(mapW)) * mmW);
+            int uy = mmY + static_cast<int>((hObj.getY() / static_cast<float>(mapH)) * mmH);
+            if (hObj.esChaman()) {
+                drawRect(ux - 2, uy - 2, 5, 5, Palette::DIVINE_GOLD);
+                drawRect(ux - 1, uy - 1, 3, 3, dot);
+            } else {
+                drawRect(ux - 1, uy - 1, 2, 2, dot);
+            }
         }
     }
 
